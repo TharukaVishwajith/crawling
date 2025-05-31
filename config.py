@@ -17,15 +17,20 @@ BROWSER_CONFIG = {
     "window_size": (1920, 1080),
     "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "chrome_options": [
+        # --- Core stability flags ---
         "--no-sandbox",
         "--disable-dev-shm-usage",
         "--disable-gpu",
         "--disable-extensions",
+        
+        # --- Speed optimization flags ---
+        "--disable-blink-features=AutomationControlled",
+        "--blink-settings=imagesEnabled=false",  # skip images for faster loading
+        "--disable-background-networking",
         "--disable-popup-blocking",
         "--disable-notifications",
         "--disable-web-security",
-        "--allow-running-insecure-content",
-        "--disable-blink-features=AutomationControlled"
+        "--allow-running-insecure-content"
     ]
 }
 

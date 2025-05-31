@@ -74,18 +74,45 @@ class BrowserManager:
             webdriver.Chrome: Configured Chrome driver instance
         """
         try:
-            self.logger.info("Setting up Chrome browser...")
+            self.logger.info("Setting up Chrome browser with fast loading optimizations...")
             
             # Chrome options configuration
             chrome_options = Options()
             
+            # FAST LOADING OPTIMIZATION: Use eager page load strategy
+            chrome_options.page_load_strategy = "eager"  # DOMContentLoaded ⇒ stop, skip fonts/images
+            self.logger.info("✓ Set page_load_strategy to 'eager' for faster loading")
+            
             # Set headless mode
             if self.headless:
                 chrome_options.add_argument("--headless")
-                self.logger.info("Running in headless mode")
+                self.logger.info("✓ Running in headless mode")
             
-            # Add all configured options
+            # CACHING OPTIMIZATION: Setup persistent cache directories
+            cache_dir = "/tmp/bo_cache"  # Use consistent cache dir from user's make_driver
+            Path(cache_dir).mkdir(exist_ok=True)
+            
+            chrome_options.add_argument(f"--user-data-dir={cache_dir}")    # persistent profile
+            chrome_options.add_argument(f"--disk-cache-dir={cache_dir}")   # disk cache
+            self.logger.info(f"✓ Setup persistent cache at {cache_dir}")
+            
+            # Add all configured options from config
             for option in config.BROWSER_CONFIG["chrome_options"]:
+                chrome_options.add_argument(option)
+            
+            # Additional performance optimizations from user's make_driver function
+            performance_options = [
+                "--disable-images",                    # Block images for faster loading
+                "--disable-plugins",
+                "--disable-background-timer-throttling",
+                "--disable-renderer-backgrounding",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-features=TranslateUI",
+                "--aggressive-cache-discard",
+                "--memory-pressure-off"
+            ]
+            
+            for option in performance_options:
                 chrome_options.add_argument(option)
             
             # Set window size
@@ -95,20 +122,27 @@ class BrowserManager:
             # Set user agent
             chrome_options.add_argument(f"--user-agent={config.BROWSER_CONFIG['user_agent']}")
             
-            # Chrome preferences
+            # Chrome preferences for faster loading
             prefs = {
                 "profile.default_content_setting_values": {
                     "notifications": 2,
                     "geolocation": 2,
-                    "media_stream": 2
+                    "media_stream": 2,
+                    "plugins": 2,              # Block plugins
+                    "popups": 2,               # Block popups
                 },
                 "profile.default_content_settings.popups": 0,
-                "profile.managed_default_content_settings.images": 2  # Block images for faster loading
+                "profile.managed_default_content_settings": {
+                    "images": 2                # Block images for faster loading
+                },
+                # Disable various features for speed
+                "profile.content_settings.exceptions.automatic_downloads.*.setting": 2,
+                "profile.default_content_settings.multiple_automatic_downloads": 2
             }
             chrome_options.add_experimental_option("prefs", prefs)
             
             # Exclude automation flags
-            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+            chrome_options.add_experimental_option("excludeSwitches", ["enable-automation", "enable-logging"])
             chrome_options.add_experimental_option('useAutomationExtension', False)
             
             # Setup Chrome service with local chromedriver
@@ -121,20 +155,21 @@ class BrowserManager:
             # Create driver instance
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             
-            # Configure timeouts
-            self.driver.implicitly_wait(config.WAIT_CONFIG["implicit_wait"])
-            self.driver.set_page_load_timeout(config.WAIT_CONFIG["page_load_timeout"])
-            self.driver.set_script_timeout(config.WAIT_CONFIG["script_timeout"])
+            # FAST TIMEOUT OPTIMIZATION: Set shorter timeouts (similar to user's 25s timeout)
+            self.driver.implicitly_wait(5)        # Reduced from config default
+            self.driver.set_page_load_timeout(25) # Use timeout from user's make_driver
+            self.driver.set_script_timeout(15)    # Reduced timeout
+            self.logger.info("✓ Set optimized timeouts: page_load=25s, script=15s, implicit=5s")
             
-            # Initialize WebDriverWait
-            self.wait = WebDriverWait(self.driver, config.WAIT_CONFIG["explicit_wait"])
+            # Initialize WebDriverWait with shorter timeout
+            self.wait = WebDriverWait(self.driver, 15)  # Reduced from config default
             
             # Execute script to hide automation flags
             self.driver.execute_script(
                 "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
             )
             
-            self.logger.info("Chrome browser setup completed successfully")
+            self.logger.info("✅ Chrome browser setup completed with fast loading optimizations")
             return self.driver
             
         except Exception as e:

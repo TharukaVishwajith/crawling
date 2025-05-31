@@ -1,0 +1,11 @@
+selenium==4.33.0
+pandas
+numpy
+nltk
+matplotlib
+seaborn
+openpyxl
+plotly
+dash
+reportlab
+python-dotenv

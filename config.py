@@ -13,41 +13,80 @@ REPORTS_DIR = PROJECT_ROOT / "reports"
 
 # Browser configuration
 BROWSER_CONFIG = {
-    "headless": True,
-    "window_size": (1920, 1080),
-    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "headless": False,
+    "window_size": (1366, 768),
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "chrome_options": [
         # --- Core stability flags ---
         "--no-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-extensions",
         
-        # --- Speed optimization flags ---
+        # --- Advanced stealth flags ---
         "--disable-blink-features=AutomationControlled",
-        "--blink-settings=imagesEnabled=false",  # skip images for faster loading
+        "--disable-automation",
+        "--disable-infobars",
+        "--disable-extensions-file-access-check",
+        "--disable-extensions-http-throttling",
+        "--disable-extensions-https-throttling",
+        
+        # --- Performance optimization flags ---
+        "--aggressive-cache-discard",
+        "--memory-pressure-off",
+        "--disable-background-timer-throttling",
+        "--disable-renderer-backgrounding",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-client-side-phishing-detection",
+        "--disable-crash-reporter",
+        "--disable-oopr-debug-crash-dump",
+        "--no-crash-upload",
+        "--disable-low-res-tiling",
+        "--max_old_space_size=4096",
+        
+        # --- Network optimization ---
+        "--aggressive-tab-discard",
+        "--enable-tcp-fast-open",
+        "--enable-experimental-web-platform-features",
+        
+        # --- Keep essential blocking for performance ---
         "--disable-background-networking",
-        "--disable-popup-blocking",
         "--disable-notifications",
+        "--disable-popup-blocking",
+        "--disable-translate",
+        "--disable-ipc-flooding-protection",
+        
+        # --- Additional stealth flags ---
+        "--disable-features=VizDisplayCompositor",
+        "--disable-features=TranslateUI",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-default-apps",
+        "--mute-audio",
+        
+        # --- Override automation detection ---
         "--disable-web-security",
-        "--allow-running-insecure-content"
+        "--allow-running-insecure-content",
+        
+        # --- Browser fingerprint randomization ---
+        "--enable-features=NetworkService,NetworkServiceLogging",
+        "--disable-features=VizDisplayCompositor,VizServiceDisplay",
     ]
 }
 
-# Wait configuration
+# Enhanced wait configuration for better stealth
 WAIT_CONFIG = {
-    "implicit_wait": 10,
-    "explicit_wait": 20,
-    "page_load_timeout": 30,
+    "implicit_wait": 8,
+    "explicit_wait": 25,
+    "page_load_timeout": 45,
     "script_timeout": 30
 }
 
-# Rate limiting configuration
+# Enhanced rate limiting for more human-like behavior
 RATE_LIMIT_CONFIG = {
-    "min_delay": 1,
-    "max_delay": 3,
-    "request_delay": 2,
-    "page_load_delay": 3
+    "min_delay": 2,
+    "max_delay": 5,
+    "request_delay": 3,
+    "page_load_delay": 4,
+    "human_typing_delay": (0.1, 0.3),
+    "mouse_movement_delay": (0.5, 1.2),
 }
 
 # Target website configuration

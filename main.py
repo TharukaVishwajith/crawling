@@ -91,7 +91,7 @@ class ECommerceAnalyzer:
     
     def navigate_to_target_website(self) -> bool:
         """
-        Navigate to Best Buy website with robust wait strategies
+        Navigate to the target e-commerce website with enhanced popup handling
         
         Returns:
             bool: True if navigation successful
@@ -100,14 +100,18 @@ class ECommerceAnalyzer:
             if not self.browser_manager or not self.browser_manager.driver:
                 self.logger.error("Browser not initialized")
                 return False
+
+            self.logger.info("Navigating to target e-commerce website with popup handling...")
             
-            self.logger.info("Navigating to target e-commerce website...")
-            
-            # Navigate to Best Buy
-            success = self.browser_manager.navigate_to_website(config.WEBSITE_CONFIG["base_url"])
+            # Use enhanced navigation with popup handling
+            success = self.browser_manager.safe_navigate_with_popup_handling(config.WEBSITE_CONFIG["base_url"])
             
             if success:
-                self.logger.info("✓ Successfully navigated to Best Buy")
+                self.logger.info("✓ Successfully navigated to Best Buy with popup handling")
+                
+                # Additional popup monitoring after navigation
+                self.logger.info("Monitoring for delayed popups...")
+                self.browser_manager.monitor_and_dismiss_popups(duration=5)
                 
                 # Verify page loaded correctly by checking for key elements
                 return self._verify_page_load()
@@ -361,11 +365,80 @@ class ECommerceAnalyzer:
             # Reset timeout
             self.browser_manager.driver.set_page_load_timeout(30)
             
-            # Handle country selection if present
-            if self._handle_country_selection():
-                self.logger.info("✓ Successfully handled country selection")
-                # Wait for the page to load after country selection
-                time.sleep(5)
+            # Wait longer for page to start loading
+            time.sleep(10)
+            
+            # Check if main-results div is already loaded (skip country selection if so)
+            self.logger.info("Checking if main-results div is already loaded...")
+            main_results_already_loaded = False
+            try:
+                main_results_check = WebDriverWait(self.browser_manager.driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "main-results"))
+                )
+                if main_results_check:
+                    self.logger.info("✓ main-results div already loaded - skipping country selection")
+                    country_handled = True  # Skip country selection
+                    main_results_already_loaded = True
+                else:
+                    country_handled = False
+            except TimeoutException:
+                self.logger.info("main-results div not found yet - will attempt country selection")
+                country_handled = False
+            
+            # Handle country selection only if main-results div is not loaded
+            if not country_handled:
+                self.logger.info("Checking for country selection page...")
+                max_attempts = 3
+                
+                for attempt in range(max_attempts):
+                    self.logger.info(f"Country selection attempt {attempt + 1}/{max_attempts}")
+                    
+                    try:
+                        # Look for United States element with longer wait
+                        us_element = WebDriverWait(self.browser_manager.driver, 15).until(
+                            EC.element_to_be_clickable((By.XPATH, "//h4[contains(text(), 'United States')]"))
+                        )
+                        
+                        if us_element:
+                            self.logger.info("✓ Found 'United States' element")
+                            
+                            # Take screenshot before clicking
+                            self.browser_manager.take_screenshot("before_country_selection")
+                            
+                            # Scroll to element and click
+                            self.browser_manager.driver.execute_script("arguments[0].scrollIntoView(true);", us_element)
+                            time.sleep(2)
+                            
+                            us_element.click()
+                            self.logger.info("✓ Clicked on 'United States'")
+                            
+                            # Wait for navigation to complete
+                            time.sleep(10)
+                            
+                            # Take screenshot after clicking
+                            self.browser_manager.take_screenshot("after_country_selection")
+                            
+                            country_handled = True
+                            break
+                            
+                    except (TimeoutException, NoSuchElementException) as e:
+                        self.logger.info(f"Attempt {attempt + 1}: Country selection not found yet: {str(e)}")
+                        if attempt < max_attempts - 1:
+                            time.sleep(5)  # Wait before next attempt
+                        continue
+                
+                if not country_handled:
+                    self.logger.info("No country selection found or needed, continuing...")
+            else:
+                self.logger.info("Skipped country selection - main-results already available")
+            
+            # Wait additional time for the main page to load after country selection (or if already loaded)
+            if country_handled and not main_results_already_loaded:
+                self.logger.info("Waiting for main page to load after country selection...")
+                time.sleep(15)
+            else:
+                self.logger.info("Page already loaded, proceeding to product extraction...")
+                time.sleep(5)  # Shorter wait since page is already loaded
             
             # Check if we're on a laptops page
             return self._verify_laptops_page()
@@ -373,85 +446,6 @@ class ECommerceAnalyzer:
         except Exception as e:
             self.logger.debug(f"Direct URL navigation failed: {str(e)}")
             return False
-    
-    def _handle_country_selection(self) -> bool:
-        """Handle the country selection step if it appears"""
-        try:
-            self.logger.info("Checking for country selection page...")
-            
-            # Look for "United States" h4 element as mentioned by user
-            country_selectors = [
-                "//h4[contains(text(), 'United States')]",
-                "//h4[text()='United States']",
-                "//h4[normalize-space(text())='United States']",
-                "//h4[contains(normalize-space(text()), 'United States')]"
-            ]
-            
-            for selector in country_selectors:
-                try:
-                    self.logger.debug(f"Looking for country selector: {selector}")
-                    
-                    # Wait a bit for the element to appear
-                    us_element = WebDriverWait(self.browser_manager.driver, 10).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    
-                    if us_element:
-                        self.logger.info("Found 'United States' selection element")
-                        
-                        # Take a screenshot before clicking
-                        self.browser_manager.take_screenshot("before_country_selection")
-                        
-                        # Click on United States
-                        us_element.click()
-                        self.logger.info("✓ Clicked on 'United States'")
-                        
-                        # Wait for navigation to complete
-                        time.sleep(3)
-                        
-                        # Take a screenshot after clicking
-                        self.browser_manager.take_screenshot("after_country_selection")
-                        
-                        return True
-                        
-                except (TimeoutException, NoSuchElementException) as e:
-                    self.logger.debug(f"Country selector not found with {selector}: {str(e)}")
-                    continue
-            
-            # Also try looking for any clickable elements that might be the country selection
-            alternative_selectors = [
-                "//div[contains(text(), 'United States')]",
-                "//span[contains(text(), 'United States')]",
-                "//a[contains(text(), 'United States')]",
-                "//button[contains(text(), 'United States')]",
-                "//*[contains(text(), 'United States') and contains(@class, 'clickable')]",
-                "//*[contains(text(), 'United States')]//parent::*[@role='button']"
-            ]
-            
-            for selector in alternative_selectors:
-                try:
-                    element = WebDriverWait(self.browser_manager.driver, 5).until(
-                        EC.element_to_be_clickable((By.XPATH, selector))
-                    )
-                    
-                    if element:
-                        self.logger.info(f"Found alternative US selection element: {selector}")
-                        element.click()
-                        self.logger.info("✓ Clicked on alternative 'United States' element")
-                        time.sleep(3)
-                        return True
-                        
-                except (TimeoutException, NoSuchElementException):
-                    continue
-            
-            # If no country selection found, it might not be needed
-            self.logger.info("No country selection found - may not be required")
-            return True
-            
-        except Exception as e:
-            self.logger.warning(f"Error handling country selection: {str(e)}")
-            # Don't fail the entire navigation just because of this step
-            return True
     
     def _navigate_via_menu_click(self) -> bool:
         """Navigate by clicking through the menu"""
@@ -1042,57 +1036,77 @@ class ECommerceAnalyzer:
                 # Wait longer for page to start loading
                 time.sleep(10)
                 
-                # Handle country selection with more patience
-                self.logger.info("Checking for country selection page...")
-                country_handled = False
-                max_attempts = 3
+                # Check if main-results div is already loaded (skip country selection if so)
+                self.logger.info("Checking if main-results div is already loaded...")
+                main_results_already_loaded = False
+                try:
+                    main_results_check = WebDriverWait(self.browser_manager.driver, 10).until(
+                        EC.presence_of_element_located((By.ID, "main-results"))
+                    )
+                    if main_results_check:
+                        self.logger.info("✓ main-results div already loaded - skipping country selection")
+                        country_handled = True  # Skip country selection
+                        main_results_already_loaded = True
+                    else:
+                        country_handled = False
+                except TimeoutException:
+                    self.logger.info("main-results div not found yet - will attempt country selection")
+                    country_handled = False
                 
-                for attempt in range(max_attempts):
-                    self.logger.info(f"Country selection attempt {attempt + 1}/{max_attempts}")
-                    
-                    try:
-                        # Look for United States element with longer wait
-                        us_element = WebDriverWait(self.browser_manager.driver, 15).until(
-                            EC.element_to_be_clickable((By.XPATH, "//h4[contains(text(), 'United States')]"))
-                        )
-                        
-                        if us_element:
-                            self.logger.info("✓ Found 'United States' element")
-                            
-                            # Take screenshot before clicking
-                            self.browser_manager.take_screenshot("before_country_selection")
-                            
-                            # Scroll to element and click
-                            self.browser_manager.driver.execute_script("arguments[0].scrollIntoView(true);", us_element)
-                            time.sleep(2)
-                            
-                            us_element.click()
-                            self.logger.info("✓ Clicked on 'United States'")
-                            
-                            # Wait for navigation to complete
-                            time.sleep(10)
-                            
-                            # Take screenshot after clicking
-                            self.browser_manager.take_screenshot("after_country_selection")
-                            
-                            country_handled = True
-                            break
-                            
-                    except (TimeoutException, NoSuchElementException) as e:
-                        self.logger.info(f"Attempt {attempt + 1}: Country selection not found yet: {str(e)}")
-                        if attempt < max_attempts - 1:
-                            time.sleep(5)  # Wait before next attempt
-                        continue
-                
+                # Handle country selection only if main-results div is not loaded
                 if not country_handled:
-                    self.logger.info("No country selection found or needed, continuing...")
+                    self.logger.info("Checking for country selection page...")
+                    max_attempts = 3
+                    
+                    for attempt in range(max_attempts):
+                        self.logger.info(f"Country selection attempt {attempt + 1}/{max_attempts}")
+                        
+                        try:
+                            # Look for United States element with longer wait
+                            us_element = WebDriverWait(self.browser_manager.driver, 15).until(
+                                EC.element_to_be_clickable((By.XPATH, "//h4[contains(text(), 'United States')]"))
+                            )
+                            
+                            if us_element:
+                                self.logger.info("✓ Found 'United States' element")
+                                
+                                # Take screenshot before clicking
+                                self.browser_manager.take_screenshot("before_country_selection")
+                                
+                                # Scroll to element and click
+                                self.browser_manager.driver.execute_script("arguments[0].scrollIntoView(true);", us_element)
+                                time.sleep(2)
+                                
+                                us_element.click()
+                                self.logger.info("✓ Clicked on 'United States'")
+                                
+                                # Wait for navigation to complete
+                                time.sleep(10)
+                                
+                                # Take screenshot after clicking
+                                self.browser_manager.take_screenshot("after_country_selection")
+                                
+                                country_handled = True
+                                break
+                                
+                        except (TimeoutException, NoSuchElementException) as e:
+                            self.logger.info(f"Attempt {attempt + 1}: Country selection not found yet: {str(e)}")
+                            if attempt < max_attempts - 1:
+                                time.sleep(5)  # Wait before next attempt
+                            continue
+                    
+                    if not country_handled:
+                        self.logger.info("No country selection found or needed, continuing...")
+                else:
+                    self.logger.info("Skipped country selection - main-results already available")
                 
-                # Wait additional time for the main page to load after country selection
-                self.logger.info("Waiting for main page to load...")
-                time.sleep(15)
-                
-                # Reset page load timeout
-                self.browser_manager.driver.set_page_load_timeout(30)
+                # Wait additional time for the main page to load after country selection (or if already loaded)
+                if country_handled and not main_results_already_loaded:
+                    self.logger.info("Waiting for main page to load after country selection...")
+                    time.sleep(15)
+                else:
+                    self.logger.info("Page already loaded, proceeding to product extraction...")
+                    time.sleep(5)  # Shorter wait since page is already loaded
             
             self.logger.info("Extracting product data from filtered results...")
             

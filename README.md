@@ -63,20 +63,33 @@ python analytics_pipeline.py --mode extract
 python analytics_pipeline.py --mode all
 ```
 
-### 3. Run Individual Components
+## 🚀 Usage Examples
 
+### Run Complete Assessment Pipeline
 ```bash
-# Data processing and analysis only
+# Execute all sections (4, 5, 6) in sequence
+python analytics_pipeline.py --mode all
+```
+
+### Run Individual Sections
+```bash
+# Section 4: Data Processing and Analysis
 python analytics_pipeline.py --mode data
+python data_processor.py  # Direct execution
 
-# PDF report generation only
+# Section 5: Automated Report Generation
 python analytics_pipeline.py --mode report
+python report_generator.py  # Direct execution
 
-# Interactive dashboard creation only
+# Section 6: Data Visualization Dashboard
 python analytics_pipeline.py --mode dashboard
+python dashboard_generator.py  # Direct execution
+```
 
-# Web scraping only (original functionality)
-python main.py --extract-url
+### Custom Data Processing
+```bash
+# Process specific data file
+python analytics_pipeline.py --mode all --data-file custom_data.json
 ```
 
 ## 🛒 **NEW: Integrated Product Extraction with Fallback**
@@ -214,7 +227,7 @@ python analytics_pipeline.py --mode extract --visible
 - **Smart data management** with age checking and fallback
 - **Command-line interface** with extensive options
 
-**New Usage Options:**
+**Usage Options:**
 ```bash
 python analytics_pipeline.py [OPTIONS]
 
